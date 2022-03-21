@@ -1,10 +1,11 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, url_for
 from flask_sse import sse
 from flask import request
 from multiprocessing import Process, Value
 import time
 import numpy
-from adafruit_amg88xx import adafruit_amg88xx
+
+import adafruit_amg88xx
 import os
 import math
 import time
@@ -16,6 +17,7 @@ import busio
 import board
 
 
+
 # Citing use of Flask sse quickstart guide: https://flask-sse.readthedocs.io/en/latest/quickstart.html
 # Citing use of Adafruit AMG8833 thermal_cam.py example code: https://github.com/adafruit/Adafruit_AMG88xx_python/blob/master/examples/thermal_cam.py
 
@@ -23,6 +25,7 @@ app = Flask(__name__)
 app.config["REDIS_URL"] = "redis://localhost"
 app.register_blueprint(sse, url_prefix='/stream')
 runningProcs = []
+
 
 
 # Load classification model
@@ -37,10 +40,9 @@ MAXTEMP = 30
 #how many color values we can have
 COLORDEPTH = 1024
 
-i2c_bus = busio.I2C(board.SCL, board.SDA)
-
 os.putenv('SDL_FBDEV', '/dev/fb1')
 
+i2c_bus = busio.I2C(board.SCL, board.SDA)
 
 #initialize the sensor
 sensor = adafruit_amg88xx.AMG88XX(i2c_bus)
@@ -80,27 +82,29 @@ def index():
     p.start()
     runningProcs = []
     runningProcs.append(p)
-    return render_template("index.html")
+    return render_template("home.html")
 
 
 #some utility functions
 def constrain(val, min_val, max_val):
     return min(max_val, max(min_val, val))
 
-def map(x, in_min, in_max, out_min, out_max):
-	return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+def map_value(x, in_min, in_max, out_min, out_max):
+    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
+#let the sensor initialize
+time.sleep(0.1)
 
 def record_loop(min_temp, max_temp):
-	#let the sensor initialize
-    time.sleep(0.1)
-
+    #let the sensor initialize
     while(1):
-
         #read the pixels
-        pixels = sensor.readPixels()
+        pixels = []
+        for row in sensor.pixels:
+            pixels = pixels + row        
         raw_pixels = pixels
-        pixels = [map(p, min_temp, max_temp, 0, COLORDEPTH - 1) for p in pixels]
+        pixels = [map_value(p, MINTEMP, MAXTEMP, 0, COLORDEPTH - 1) for p in pixels]
+
         #data = numpy.asarray([pixels])
         #print(clf.predict(data))
         #print(pixels)
@@ -124,7 +128,6 @@ def record_loop(min_temp, max_temp):
         sse.publish({"message": interp}, type='pixels')
 
 
-
-
-
+if __name__ == "__main__":
+    app.run(debug=True)
 
