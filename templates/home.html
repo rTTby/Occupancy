@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Occupancy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+        integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Dongle:wght@300&family=Open+Sans:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel= "stylesheet" type= "text/css" href= "{{ url_for('static',filename='css/styles.css') }}">
+</head>
+
+<body>
+    <header class="header">
+        <h2 class="header__title">Occupancy</h2>
+        <div class="header__date">
+            <p><i class="far fa-clock"></i> 18:30</p>
+            <p>18 Jan 2022</p>
+        </div>
+        <button class="header__lang">English<i class="fa-solid fa-caret-down"></i></button>
+    </header>
+
+    <div class="content">
+        <div class="room">
+            <h3>
+                Tester
+            </h3>
+            <hr class="line">
+            <div class="room__number">
+                <button><i class="fa-solid fa-building"></i> Room 1 <i class="fa-solid fa-magnifying-glass"></i></button>
+                <button><i class="fa-solid fa-building"></i> Room 2 <i class="fa-solid fa-magnifying-glass"></i></button>
+                <button><i class="fa-solid fa-building"></i> Room 3 <i class="fa-solid fa-magnifying-glass"></i></button>
+            </div>
+            <div class="room__facility">
+                <h4>Facility</h4>
+                <div class="room__facility--size">
+                    <p>25 sqm</p>
+                    <p>Room Size</p>
+                </div>
+                <div class="room__facility--density">
+                    <p>10 (person)</p>
+                    <p>Density Maximum</p>
+                </div>
+            </div>
+            <hr class="line">
+            <div class="actions">
+                <button>Log out</button>
+            </div>
+        </div>
+        <div class="heatmap">
+            <p>
+                Rooms within Baksters Office:
+            </p>
+            <div class="heatmap__content">
+                <div class="heatmap__map">
+                    <h2>
+                        Heatmap
+                    </h2>
+                    <div>
+                        <canvas id="myCanvas" width="700" height="500">Error</canvas>
+                    </div>
+                    <div>
+                        <span id="classificationLabel"></span>
+                    </div>  
+                </div>
+                <div class="heatmap__info">
+                    <div class="heatmap__info--inspection">
+                        <h3>Inspection:</h3>
+                        <p>1</p>
+                        <p>Person</p>
+                        <p>10%</p>
+                        <p>Occupancy</p>
+                    </div>
+                    <div class="heatmap__info--result">
+                        <p>The room is not too crowded</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <h2 class="footer__title">Occupancy</h2>
+        <div class="footer__text">
+            <p class="footer__text--version">VERSION 1.0</p>
+            <p class="footer__text--powered">Powered by VVS</p>
+        </div>
+        <img src="{{url_for('static', filename='logo.png')}}">
+    </footer>
+    <script>
+        var lastUtterance = 0;
+        var classLabel = document.getElementById("classificationLabel");
+        var cw = 700;
+        var ch = 500;
+        var source = new EventSource("{{ url_for('sse.stream') }}");
+        source.addEventListener('pixels', function(event) {
+            var data = JSON.parse(event.data);
+            updateCanvas(data.message);
+        }, false);
+
+        source.addEventListener('classification', function(event) {
+                var data = JSON.parse(event.data);
+                classLabel.innerHTML = data.message;
+                var currTime = (new Date()).getTime();
+                if (currTime > lastUtterance + 2000 && data.message === "Person detected") {
+                    speechSynthesis.speak(new SpeechSynthesisUtterance("IOT security, identify yourself"));		
+                    lastUtterance = currTime;
+                }	
+        }, false);
+        // multiplier of the final security camera feed size e.g. originally 32 x 32 => 480 x 480 with numDuplicates = 15 
+        var numDuplicates = 15;
+        function updateCanvas(data) {
+        var c = document.getElementById("myCanvas");
+        var ctx = c.getContext("2d");
+        var imgData = ctx.createImageData(32 * numDuplicates, 32 * numDuplicates);
+            
+
+        newdata = []
+        for (odc = 0; odc < 32; odc++) {
+            for (col = 0; col < numDuplicates; col++) {
+                for (dc = 0; dc < 32; dc ++) {
+                    for (row = 0; row < numDuplicates; row++) {
+                        newdata.push(data[32*odc + dc]);
+                    }
+                }
+            }
+        }
+        var i;
+        for (dc = 0; dc < imgData.data.length; dc += 4) {
+            imgData.data[dc+0] = newdata[dc/4][0];
+            imgData.data[dc+1] = newdata[dc/4][1];
+            imgData.data[dc+2] = newdata[dc/4][2];
+            imgData.data[dc+3] = 255;
+        }
+          
+            ctx.putImageData(imgData, 0, 0);
+
+
+        }
+    </script>
+</body>
+</html>
