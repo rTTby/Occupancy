@@ -19,7 +19,7 @@ Follow tutorial on Adafruit to install necessary software and enable I2C (https:
 ### Clone this repo on the pi
 
 ```
-git clone 
+git clone https://github.com/rubysengXx/Occupancy.git
 ```
 
 ### Install the necessary dependencies
